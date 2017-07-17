@@ -69,7 +69,7 @@ def stocGradAscent0(dataMatrix, classLabels):  # 随机梯度上升算法
     return weights
 
 
-def stocGradAscent1(dataMatrix, classLabels, numIter=150):
+def stocGradAscent1(dataMatrix, classLabels, numIter=150):  # 改进的随机梯度上升算法
     m, n = shape(dataMatrix)
     weights = ones(n)
     for j in range(numIter):
@@ -82,3 +82,47 @@ def stocGradAscent1(dataMatrix, classLabels, numIter=150):
             weights += alpha * error * dataMatrix[randIndex]
             del (dataIndex[randIndex])  # 删掉该随机值
     return weights
+
+
+def classifyVector(inX, weights):  # 感知器算法
+    prob = sigmoid(sum(inX * weights))
+    if prob > 0.5:
+        return 1.0
+    else:
+        return 0.0
+
+
+def colicTest():  # 打开训练集和测试集
+    frTrain = open('horseColicTraining.txt')  # 训练集
+    frTest = open('horseColicTest.txt')  # 测试集
+    trainingSet = []
+    trainingLabels = []
+    for line in frTrain.readlines():
+        currLine = line.strip().split('\t')  # 以制表符分割
+        lineArr = []
+        for i in range(21):
+            lineArr.append(float(currLine[i]))
+        trainingSet.append(lineArr)  # trainingSet是lineArr组成的列表，lineArr是数字组成的列表
+        trainingLabels.append(float(currLine[21]))
+    trainWeights = stocGradAscent1(array(trainingSet), trainingLabels, 1000)  # 计算回归系数向量
+    errorCount = 0;
+    numTestVec = 0.0
+    for line in frTest.readlines():
+        numTestVec += 1.0  # 计算测试集样本数
+        currLine = line.strip().split('\t')
+        lineArr = []
+        for i in range(21):
+            lineArr.append(float(currLine[i]))
+        if int(classifyVector(array(lineArr), trainWeights)) != int(currLine[21]):
+            errorCount += 1
+    errorRate = (float(errorCount) / numTestVec)  # 模型分类错误率
+    print("the error rate of this test is: %f" % errorRate)
+    return errorRate
+
+
+def multiTest():  # 计算numTests次求分类错误率的平均值
+    numTests = 10;  # 计算次数
+    errorSum = 0.0
+    for k in range(numTests):
+        errorSum += colicTest()
+    print("after %d iterations the average error rate is: %f" % (numTests, errorSum / float(numTests)))
