@@ -26,6 +26,7 @@ def loadExData2():
             [1, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0]]
 
 
+# 相似度计算
 def ecludSim(inA, inB):  # 定义：相似度=1/(1+欧氏距离)
     return 1.0 / (1.0 + la.norm(inA - inB))
 
@@ -42,16 +43,18 @@ def cosSim(inA, inB):  # 余弦相似度，取值范围归一化到0到1之间
 
 
 # 基于物品相似度的推荐引擎
-def standEst(dataMat, user, simMeas, item):
-    n = shape(dataMat)[1]
+def standEst(dataMat, user, simMeas, item):  # 行对应用户，列对应物品
+    n = shape(dataMat)[1]  # n个物品
     simTotal = 0.0
     ratSimTotal = 0.0
     for j in range(n):
-        userRating = dataMat[user, j]
-        if userRating == 0: continue
+        userRating = dataMat[user, j]  # 用户评分
+        if userRating == 0:
+            continue  # 没有评分则下一轮循环
+        # 寻找两个都被评级的物品，使用了逻辑与
         overLap = nonzero(logical_and(dataMat[:, item].A > 0, dataMat[:, j].A > 0))[0]
-        if len(overLap) == 0:
-            similarity = 0
+        if len(overLap) == 0:  # 两者没有任何重合元素
+            similarity = 0  # 相似度为0
         else:
             similarity = simMeas(dataMat[overLap, item], dataMat[overLap, j])
         print('the %d and %d similarity is: %f' % (item, j, similarity))
@@ -86,8 +89,9 @@ def svdEst(dataMat, user, simMeas, item):
 
 
 def recommend(dataMat, user, N=3, simMeas=cosSim, estMethod=standEst):
-    unratedItems = nonzero(dataMat[user, :].A == 0)[1]  # find unrated items
-    if len(unratedItems) == 0: return 'you rated everything'
+    unratedItems = nonzero(dataMat[user, :].A == 0)[1]  # 寻找未评级物品
+    if len(unratedItems) == 0:
+        return 'you rated everything'
     itemScores = []
     for item in unratedItems:
         estimatedScore = estMethod(dataMat, user, simMeas, item)
