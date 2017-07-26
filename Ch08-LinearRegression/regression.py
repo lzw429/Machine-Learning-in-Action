@@ -1,4 +1,7 @@
 from numpy import *
+from time import sleep
+import json
+import urllib2
 
 
 # 数据导入函数
@@ -133,36 +136,31 @@ def stageWise(xArr, yArr, eps=0.01, numIt=100):  # eps是每次迭代需要调�
     return returnMat
 
 
-def scrapePage(inFile, outFile, yr, numPce, origPrc):
-    from BeautifulSoup import BeautifulSoup
-    fr = open(inFile)
-    fw = open(outFile, 'a')  # a is append mode writing
-    soup = BeautifulSoup(fr.read())
-    i = 1
-    currentRow = soup.findAll('table', r="%d" % i)
-    while (len(currentRow) != 0):
-        currentRow = soup.findAll('table', r="%d" % i)
-        title = currentRow[0].findAll('a')[1].text
-        lwrTitle = title.lower()
-        if (lwrTitle.find('new') > -1) or (lwrTitle.find('nisb') > -1):
-            newFlag = 1.0
-        else:
-            newFlag = 0.0
-        soldUnicde = currentRow[0].findAll('td')[3].findAll('span')
-        if len(soldUnicde) == 0:
-            print("item #%d did not sell" % i)
-        else:
-            soldPrice = currentRow[0].findAll('td')[4]
-            priceStr = soldPrice.text
-            priceStr = priceStr.replace('$', '')  # strips out $
-            priceStr = priceStr.replace(',', '')  # strips out ,
-            if len(soldPrice) > 1:
-                priceStr = priceStr.replace('Free shipping', '')  # strips out Free Shipping
-            print("%s\t%d\t%s" % (priceStr, newFlag, title))
-            fw.write("%d\t%d\t%d\t%f\t%s\n" % (yr, numPce, newFlag, origPrc, priceStr))
-        i += 1
-        currentRow = soup.findAll('table', r="%d" % i)
-    fw.close()
+# 购物信息的获取函数
+def searchForSet(retX, retY, setNum, yr, numPce, origPrc):
+    sleep(10)
+    myAPIstr = 'AIzaSyD2cR2KFyx12hXu6PFU-wrWot3NXvko8vY'
+    searchURL = 'https://www.googleapis.com/shopping/search/v1/public/products?key=%s&country=US&q=lego+%d&alt=json' % (
+        myAPIstr, setNum)
+    pg = urllib2.urlopen(searchURL)
+    retDict = json.loads(pg.read())
+    for i in range(len(retDict['items'])):
+        try:
+            currItem = retDict['items'][i]
+            if currItem['product']['condition'] == 'new':
+                newFlag = 1
+            else:
+                newFlag = 0
+            listOfInv = currItem['product']['inventories']
+            for item in listOfInv:
+                sellingPrice = item['price']
+                if sellingPrice > origPrc * 0.5:
+                    print("%d\t%d\t%d\t%f\t%f" % (yr, numPce, newFlag, origPrc, sellingPrice))
+
+                    retX.append([yr, numPce, newFlag, origPrc])
+                    retY.append(sellingPrice)
+        except:
+            print('problem with item %d' % i)
 
 
 def setDataCollect():
@@ -174,43 +172,44 @@ def setDataCollect():
     scrapePage('setHtml/lego10196.html', 'out.txt', 2009, 3263, 249.99)
 
 
-def crossValidation(xArr, yArr, numVal=10):
-    m = len(yArr)
-    indexList = range(m)
-    errorMat = zeros((numVal, 30))  # create error mat 30columns numVal rows
+# 交叉验证测试岭回归
+def crossValidation(xArr, yArr, numVal=10):  # numVal是交叉验证的次数
+    m = len(yArr)  # 样本个数
+    indexList = range(m)  # [1,2,...,m]
+    errorMat = zeros((numVal, 30))  # 误差矩阵，numVal行30列
     for i in range(numVal):
-        trainX = [];
+        trainX = []  # 训练集容器
         trainY = []
-        testX = [];
+        testX = []  # 测试集容器
         testY = []
-        random.shuffle(indexList)
-        for j in range(m):  # create training set based on first 90% of values in indexList
+        random.shuffle(indexList)  # 对indexList进行混洗
+        for j in range(m):  # 以indexList前90%的值建立训练集
             if j < m * 0.9:
                 trainX.append(xArr[indexList[j]])
                 trainY.append(yArr[indexList[j]])
-            else:
+            else:  # 剩下10%作为测试集
                 testX.append(xArr[indexList[j]])
                 testY.append(yArr[indexList[j]])
-        wMat = ridgeTest(trainX, trainY)  # get 30 weight vectors from ridge
-        for k in range(30):  # loop over all of the ridge estimates
-            matTestX = mat(testX);
+        wMat = ridgeTest(trainX, trainY)  # 从ridgeRegression得到30个回归系数
+        for k in range(30):  # ridgeTest()使用30个不同的lambda创建了30组不同的回归系数
+            matTestX = mat(testX)
             matTrainX = mat(trainX)
             meanTrain = mean(matTrainX, 0)
             varTrain = var(matTrainX, 0)
-            matTestX = (matTestX - meanTrain) / varTrain  # regularize test with training params
-            yEst = matTestX * mat(wMat[k, :]).T + mean(trainY)  # test ridge results and store
+            matTestX = (matTestX - meanTrain) / varTrain  # 训练集标准化
+            yEst = matTestX * mat(wMat[k, :]).T + mean(trainY)
             errorMat[i, k] = rssError(yEst.T.A, array(testY))
-            # print errorMat[i,k]
-    meanErrors = mean(errorMat, 0)  # calc avg performance of the different ridge weight vectors
+    meanErrors = mean(errorMat, 0)  # 按列计算30组回归系数的平均误差
     minMean = float(min(meanErrors))
-    bestWeights = wMat[nonzero(meanErrors == minMean)]
-    # can unregularize to get model
-    # when we regularized we wrote Xreg = (x-meanX)/var(x)
-    # we can now write in terms of x not Xreg:  x*w/var(x) - meanX/var(x) +meanY
-    xMat = mat(xArr);
+    bestWeights = wMat[nonzero(meanErrors == minMean)]  # nonzero获得索引，找到最优回归系数
+    # 建立模型可不标准化
+    # 当标准化 Xreg = (x-meanX)/var(x)
+    # 或不标准化:  x*w/var(x) - meanX/var(x) +meanY
+    xMat = mat(xArr)
     yMat = mat(yArr).T
-    meanX = mean(xMat, 0);
+    meanX = mean(xMat, 0)
     varX = var(xMat, 0)
+    # 岭回归使用了数据标准化，而standRegres()没有，为了将上述比较可视化还需将数据还原
     unReg = bestWeights / varX
     print("the best model from Ridge Regression is:\n", unReg)
     print("with constant term: ", -1 * sum(multiply(meanX, unReg)) + mean(yMat))
