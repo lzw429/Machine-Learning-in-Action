@@ -24,7 +24,7 @@ def standRegres(xArr, yArr):
     xTx = xMat.T * xMat
     if linalg.det(xTx) == 0.0:  # 计算xTx的行列式
         print("This matrix is singular, cannot do inverse")  # 这是奇异阵，不可逆
-        return  # 该方法对奇异阵无法计算
+        return  # xTx是奇异阵，无法计算
     ws = xTx.I * (xMat.T * yMat)  # .I是求逆；计算得到回归系数
     return ws
 
@@ -43,7 +43,7 @@ def lwlr(testPoint, xArr, yArr, k=1.0):
     xTx = xMat.T * (weights * xMat)
     if linalg.det(xTx) == 0.0:  # 如果xTx的行列式为0
         print("This matrix is singular, cannot do inverse")  # 这是奇异阵，不可逆
-        return  # 该方法对奇异阵无法计算
+        return  # xTx是奇异阵，无法计算
     ws = xTx.I * (xMat.T * (weights * yMat))
     return testPoint * ws
 
@@ -70,27 +70,26 @@ def rssError(yArr, yHatArr):  # 需要yArr和yHatArr都是数组
 
 
 # 岭回归
-def ridgeRegres(xMat, yMat, lam=0.2):
+def ridgeRegres(xMat, yMat, lam=0.2):  # lam是单位矩阵前的系数；lambda是Python关键字，此处使用lam代替
     xTx = xMat.T * xMat
     denom = xTx + eye(shape(xMat)[1]) * lam
     if linalg.det(denom) == 0.0:
-        print
-        "This matrix is singular, cannot do inverse"
+        print("This matrix is singular, cannot do inverse")  # 如果lam是0，denom仍是奇异阵，无法计算
         return
     ws = denom.I * (xMat.T * yMat)
     return ws
 
 
-def ridgeTest(xArr, yArr):
+def ridgeTest(xArr, yArr):  # 用一组lambda测试结果
     xMat = mat(xArr)
-    yMat = mat(yArr).T
-    yMean = mean(yMat, 0)
-    yMat = yMat - yMean  # to eliminate X0 take mean off of Y
-    # regularize X's
-    xMeans = mean(xMat, 0)  # calc mean then subtract it off
-    xVar = var(xMat, 0)  # calc variance of Xi then divide by it
-    xMat = (xMat - xMeans) / xVar
-    numTestPts = 30
+    yMat = mat(yArr).T  # 转置为列向量
+    yMean = mean(yMat, 0)  # 每列求平均值
+    yMat = yMat - yMean
+    # 对特征做标准化处理
+    xMeans = mean(xMat, 0)  # 每列求平均值
+    xVar = var(xMat, 0)  # 每列求方差
+    xMat = (xMat - xMeans) / xVar  # 标准化计算
+    numTestPts = 30  # 在30个不同的lambda下调用ridgeRegres
     wMat = zeros((numTestPts, shape(xMat)[1]))
     for i in range(numTestPts):
         ws = ridgeRegres(xMat, yMat, exp(i - 10))
@@ -98,37 +97,37 @@ def ridgeTest(xArr, yArr):
     return wMat
 
 
-def regularize(xMat):  # regularize by columns
-    inMat = xMat.copy()
-    inMeans = mean(inMat, 0)  # calc mean then subtract it off
-    inVar = var(inMat, 0)  # calc variance of Xi then divide by it
-    inMat = (inMat - inMeans) / inVar
+def regularize(xMat):  # 标准化处理
+    inMat = xMat.copy()  # 必须使用copy，否则得到索引
+    inMeans = mean(inMat, 0)  # 计算平均值
+    inVar = var(inMat, 0)  # 计算方差
+    inMat = (inMat - inMeans) / inVar  # 标准化
     return inMat
 
 
-def stageWise(xArr, yArr, eps=0.01, numIt=100):
+# 前向逐步线性回归：与lasso做法相近但计算简单
+def stageWise(xArr, yArr, eps=0.01, numIt=100):  # eps是每次迭代需要调整的步长；numIt表示迭代次数
     xMat = mat(xArr)
-    yMat = mat(yArr).T
+    yMat = mat(yArr).T  # 转置为列向量
     yMean = mean(yMat, 0)
-    yMat = yMat - yMean  # can also regularize ys but will get smaller coef
+    yMat = yMat - yMean  # 也可以使ys标准化，但会减小相关系数
     xMat = regularize(xMat)
     m, n = shape(xMat)
-    returnMat = zeros((numIt, n))  # testing code remove
+    returnMat = zeros((numIt, n))  # 每次迭代都打印w向量，用于分析算法执行的过程和效果
     ws = zeros((n, 1))
-    wsTest = ws.copy()
+    wsTest = ws.copy()  # 必须使用.copy()，否则得到的是ws的索引
     wsMax = ws.copy()
-    for i in range(numIt):  # could change this to while loop
-        # print ws.T
-        lowestError = inf
-        for j in range(n):
+    for i in range(numIt):  # 贪心算法，每一步尽可能减小误差
+        lowestError = inf  # 无穷大infinity
+        for j in range(n):  # 对于每个特征
             for sign in [-1, 1]:
                 wsTest = ws.copy()
                 wsTest[j] += eps * sign
                 yTest = xMat * wsTest
-                rssE = rssError(yMat.A, yTest.A)
-                if rssE < lowestError:
+                rssE = rssError(yMat.A, yTest.A)  # 计算平方误差
+                if rssE < lowestError:  # 比较，取最小误差
                     lowestError = rssE
-                    wsMax = wsTest
+                    wsMax = wsTest  # 最小误差时的ws
         ws = wsMax.copy()
         returnMat[i, :] = ws.T
     return returnMat
