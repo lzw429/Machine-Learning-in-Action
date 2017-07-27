@@ -121,13 +121,11 @@ def getActionIds():
                 if action.level == 'House' and \
                         (action.stage == 'Passage' or action.stage == 'Amendment Vote'):
                     actionId = int(action.actionId)
-                    print
-                    'bill: %d has actionId: %d' % (billNum, actionId)
+                    print('bill: %d has actionId: %d' % (billNum, actionId))
                     actionIdList.append(actionId)
                     billTitleList.append(line.strip().split('\t')[1])
         except:
-            print
-            "problem getting bill %d" % billNum
+            print("problem getting bill %d" % billNum)
         sleep(1)  # delay to be polite
     return actionIdList, billTitleList
 

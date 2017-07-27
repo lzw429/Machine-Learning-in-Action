@@ -79,7 +79,6 @@ def svdEst(dataMat, user, simMeas, item):
         if userRating == 0 or j == item: continue
         similarity = simMeas(xformedItems[item, :].T, xformedItems[j, :].T)
         print('the %d and %d similarity is: %f' % (item, j, similarity))
-
         simTotal += similarity
         ratSimTotal += similarity * userRating
     if simTotal == 0:
