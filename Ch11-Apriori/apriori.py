@@ -139,8 +139,7 @@ def getTransList(actionIdList, billTitleList):  # this will return a list of lis
     voteCount = 2
     for actionId in actionIdList:
         sleep(3)
-        print
-        'getting votes for actionId: %d' % actionId
+        print('getting votes for actionId: %d' % actionId)
         try:
             voteList = votesmart.votes.getBillActionVotes(actionId)
             for vote in voteList:
@@ -155,7 +154,6 @@ def getTransList(actionIdList, billTitleList):  # this will return a list of lis
                 elif vote.action == 'Yea':
                     transDict[vote.candidateName].append(voteCount + 1)
         except:
-            print
-            "problem getting actionId: %d" % actionId
+            print("problem getting actionId: %d" % actionId)
         voteCount += 2
     return transDict, itemMeaning
