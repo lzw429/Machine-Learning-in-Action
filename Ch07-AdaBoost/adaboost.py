@@ -58,7 +58,7 @@ def buildStump(dataArr, classLabels, D):
                 predictedVals = stumpClassify(dataMatrix, i, threshVal,
                                               inequal)  # 调用单层决策树（决策树桩）
                 errArr = mat(ones((m, 1)))  # m行1列
-                errArr[predictedVals == labelMat] = 0  # 如果预测正确，误差是0
+                errArr[predictedVals == labelMat] = 0  # 如果预测正确，错误率是0
                 weightedError = D.T * errArr  # 计算加权错误率，其中D是权重向量
                 # 输出所有值
                 # print "split: dim %d, thresh %.2f, thresh ineqal: %s, the weighted error is %.3f" % (i, threshVal, inequal, weightedError)
@@ -70,24 +70,25 @@ def buildStump(dataArr, classLabels, D):
                     bestStump['ineq'] = inequal  # 数据与阈值的不等关系
     return bestStump, minError, bestClasEst
 
-#
-def adaBoostTrainDS(dataArr, classLabels, numIt=40):
-    weakClassArr = []
-    m = shape(dataArr)[0]
-    D = mat(ones((m, 1)) / m)  # init D to all equal
-    aggClassEst = mat(zeros((m, 1)))
-    for i in range(numIt):
-        bestStump, error, classEst = buildStump(dataArr, classLabels, D)  # build Stump
-        # print "D:",D.T
+
+# 基于单层决策树的AdaBoost训练过程
+def adaBoostTrainDS(dataArr, classLabels, numIt=40):  # numIt是迭代次数；DS 是 decision stump
+    weakClassArr = []  # 弱分类器
+    m = shape(dataArr)[0]  # 样本数量
+    D = mat(ones((m, 1)) / m)  # 初始化权重矩阵D，所有值相等
+    aggClassEst = mat(zeros((m, 1)))  # 记录每个数据点的类别估计累计值
+    for i in range(numIt):  # 运行numIt次或训练错误率为0为止
+        bestStump, error, classEst = buildStump(dataArr, classLabels, D)  # 建立决策树桩
+        # print "D:",D.T # 可查看迭代过程中的权重值
         alpha = float(
-            0.5 * log((1.0 - error) / max(error, 1e-16)))  # calc alpha, throw in max(error,eps) to account for error=0
+            0.5 * log((1.0 - error) / max(error, 1e-16)))  # alpha是在总分类器中，本次单层决策树输出结果的权重；使用max是防止除0溢出
         bestStump['alpha'] = alpha
-        weakClassArr.append(bestStump)  # store Stump Params in Array
+        weakClassArr.append(bestStump)  # 将存有弱分类器参数的 bestStump字典 放入弱分类器数组
         # print "classEst: ",classEst.T
-        expon = multiply(-1 * alpha * mat(classLabels).T, classEst)  # exponent for D calc, getting messy
-        D = multiply(D, exp(expon))  # Calc New D for next iteration
+        expon = multiply(-1 * alpha * mat(classLabels).T, classEst)  # 计算D需要用的指数
+        D = multiply(D, exp(expon))  # 为下一次迭代计算新的权重向量D
         D = D / D.sum()
-        # calc training error of all classifiers, if this is 0 quit for loop early (use break)
+        # 错误率累加计算
         aggClassEst += alpha * classEst
         # print "aggClassEst: ",aggClassEst.T
         aggErrors = multiply(sign(aggClassEst) != mat(classLabels).T, ones((m, 1)))
@@ -97,44 +98,46 @@ def adaBoostTrainDS(dataArr, classLabels, numIt=40):
     return weakClassArr, aggClassEst
 
 
-def adaClassify(datToClass, classifierArr):
-    dataMatrix = mat(datToClass)  # do stuff similar to last aggClassEst in adaBoostTrainDS
-    m = shape(dataMatrix)[0]
-    aggClassEst = mat(zeros((m, 1)))
+# AdaBoost分类函数：利用已训练的多个弱分类器进行分类
+def adaClassify(datToClass, classifierArr):  # datToClass是待分类样例；classifierArr是多个弱分类器组成的数组
+    dataMatrix = mat(datToClass)
+    m = shape(dataMatrix)[0]  # 待分类样例个数
+    aggClassEst = mat(zeros((m, 1)))  # 记录每个数据点的类别估计累计值
     for i in range(len(classifierArr)):
         classEst = stumpClassify(dataMatrix, classifierArr[i]['dim'], \
                                  classifierArr[i]['thresh'], \
-                                 classifierArr[i]['ineq'])  # call stump classify
+                                 classifierArr[i]['ineq'])  # 调用决策树桩分类器
         aggClassEst += classifierArr[i]['alpha'] * classEst
         print aggClassEst
-    return sign(aggClassEst)
+    return sign(aggClassEst)  # 符号函数
 
 
+# ROC曲线的绘制及AUC计算函数
 def plotROC(predStrengths, classLabels):
     import matplotlib.pyplot as plt
-    cur = (1.0, 1.0)  # cursor
-    ySum = 0.0  # variable to calculate AUC
-    numPosClas = sum(array(classLabels) == 1.0)
-    yStep = 1 / float(numPosClas);
+    cur = (1.0, 1.0)  # 光标
+    ySum = 0.0  # 用于计算AUC的变量
+    numPosClas = sum(array(classLabels) == 1.0)  # 这是正例个数；负例个数可由此计算
+    yStep = 1 / float(numPosClas)
     xStep = 1 / float(len(classLabels) - numPosClas)
-    sortedIndicies = predStrengths.argsort()  # get sorted index, it's reverse
+    sortedIndicies = predStrengths.argsort()  # 得到排好序的索引，是逆序的
     fig = plt.figure()
     fig.clf()
     ax = plt.subplot(111)
-    # loop through all the values, drawing a line segment at each point
+    # 遍历所有值，在每个点绘制一条线段
     for index in sortedIndicies.tolist()[0]:
         if classLabels[index] == 1.0:
-            delX = 0;
-            delY = yStep;
+            delX = 0
+            delY = yStep
         else:
-            delX = xStep;
-            delY = 0;
+            delX = xStep
+            delY = 0
             ySum += cur[1]
-        # draw line from cur to (cur[0]-delX,cur[1]-delY)
+        # 从 cur 划线到 (cur[0]-delX,cur[1]-delY)
         ax.plot([cur[0], cur[0] - delX], [cur[1], cur[1] - delY], c='b')
         cur = (cur[0] - delX, cur[1] - delY)
     ax.plot([0, 1], [0, 1], 'b--')
-    plt.xlabel('False positive rate');
+    plt.xlabel('False positive rate')
     plt.ylabel('True positive rate')
     plt.title('ROC curve for AdaBoost horse colic detection system')
     ax.axis([0, 1, 0, 1])
