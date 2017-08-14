@@ -29,16 +29,17 @@ def loadDataSet(fileName):
 
 
 # 单层决策树生成函数
-def stumpClassify(dataMatrix, dimen, threshVal, threshIneq):  # 数据集，维度，阈值
+def stumpClassify(dataMatrix, dimen, threshVal, threshIneq):  # 数据集，维度，阈值，与阈值的不等关系
     # 通过阈值比较对数据分类
     retArray = ones((shape(dataMatrix)[0], 1))  # m × 1
-    if threshIneq == 'lt':
+    if threshIneq == 'lt':  # "lt" is short for "less than"
         retArray[dataMatrix[:, dimen] <= threshVal] = -1.0
-    else:
-        retArray[dataMatrix[:, dimen] > threshVal] = +1.0
+    else:  # if threshIneq == 'gt'
+        retArray[dataMatrix[:, dimen] > threshVal] = -1.0
+    return retArray
 
 
-# 遍历 stumpClassify 函数所有可能的输入值，找到数据集上最佳的单层决策树
+# 遍历 stumpClassify 函数所有可能的输入值，找到数据集上最佳的单层决策树，也就是弱学习器
 def buildStump(dataArr, classLabels, D):
     dataMatrix = mat(dataArr)
     labelMat = mat(classLabels).T  # 转置为列向量
@@ -48,27 +49,28 @@ def buildStump(dataArr, classLabels, D):
     bestClasEst = mat(zeros((m, 1)))  # 最佳类别估计
     minError = inf  # 最小错误率，初始化为无穷大
     for i in range(n):  # 遍历所有特征
-        rangeMin = dataMatrix[:, i].min()
-        rangeMax = dataMatrix[:, i].max()
-        stepSize = (rangeMax - rangeMin) / numSteps
-        for j in range(-1, int(numSteps) + 1):  # loop over all range in current dimension
-            for inequal in ['lt', 'gt']:  # go over less than and greater than
-                threshVal = (rangeMin + float(j) * stepSize)
+        rangeMin = dataMatrix[:, i].min()  # 该特征中的最小值
+        rangeMax = dataMatrix[:, i].max()  # 该特征中的最大值
+        stepSize = (rangeMax - rangeMin) / numSteps  # 计算步长
+        for j in range(-1, int(numSteps) + 1):  # 在当前特征中遍历所有值
+            for inequal in ['lt', 'gt']:  # 从 less than 到 greater than
+                threshVal = (rangeMin + float(j) * stepSize)  # 将阈值的范围设置到了整个取值范围之外
                 predictedVals = stumpClassify(dataMatrix, i, threshVal,
-                                              inequal)  # call stump classify with i, j, lessThan
-                errArr = mat(ones((m, 1)))
-                errArr[predictedVals == labelMat] = 0
-                weightedError = D.T * errArr  # calc total error multiplied by D
+                                              inequal)  # 调用单层决策树（决策树桩）
+                errArr = mat(ones((m, 1)))  # m行1列
+                errArr[predictedVals == labelMat] = 0  # 如果预测正确，误差是0
+                weightedError = D.T * errArr  # 计算加权错误率，其中D是权重向量
+                # 输出所有值
                 # print "split: dim %d, thresh %.2f, thresh ineqal: %s, the weighted error is %.3f" % (i, threshVal, inequal, weightedError)
                 if weightedError < minError:
                     minError = weightedError
                     bestClasEst = predictedVals.copy()
-                    bestStump['dim'] = i
-                    bestStump['thresh'] = threshVal
-                    bestStump['ineq'] = inequal
+                    bestStump['dim'] = i  # 维度
+                    bestStump['thresh'] = threshVal  # 阈值
+                    bestStump['ineq'] = inequal  # 数据与阈值的不等关系
     return bestStump, minError, bestClasEst
 
-
+#
 def adaBoostTrainDS(dataArr, classLabels, numIt=40):
     weakClassArr = []
     m = shape(dataArr)[0]
