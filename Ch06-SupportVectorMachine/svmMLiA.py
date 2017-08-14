@@ -41,13 +41,14 @@ def smoSimple(dataMatIn, classLabels, C, toler, maxIter):  # 数据集，类别�
     while (iter < maxIter):  # 最大迭代次数以内
         alphaPairsChanged = 0  # 记录 alpha 是否已经进行优化
         for i in range(m):  # 遍历整个数据集
-            fXi = float(multiply(alphas,labelMat).T*(dataMatrix*dataMatrix[i,:].T)) + b
-            Ei = fXi - float(labelMat[i])#if checks if an example violates KKT conditions
+            fXi = float(multiply(alphas,labelMat).T*(dataMatrix*dataMatrix[i,:].T)) + b  # 计算预测值
+            Ei = fXi - float(labelMat[i])
+			# 下面判断样本点i是否违背 KKT 条件
             if ((labelMat[i]*Ei < -toler) and (alphas[i] < C)) or ((labelMat[i]*Ei > toler) and (alphas[i] > 0)):
-                j = selectJrand(i,m)
-                fXj = float(multiply(alphas,labelMat).T*(dataMatrix*dataMatrix[j,:].T)) + b
+                j = selectJrand(i,m) # 选择样本点j
+                fXj = float(multiply(alphas,labelMat).T*(dataMatrix*dataMatrix[j,:].T)) + b  # 计算预测值
                 Ej = fXj - float(labelMat[j])
-                alphaIold = alphas[i].copy(); alphaJold = alphas[j].copy();
+                alphaIold = alphas[i].copy(); alphaJold = alphas[j].copy();  # 保存 alphaI 和 alphaJ 的 old 值
                 if (labelMat[i] != labelMat[j]):
                     L = max(0, alphas[j] - alphas[i])
                     H = min(C, C + alphas[j] - alphas[i])
@@ -86,6 +87,8 @@ def kernelTrans(X, A, kTup): #calc the kernel or transform data to a higher dime
     else: raise NameError('Houston We Have a Problem -- That Kernel is not recognized')
     return K
 
+	
+# 完整版 Platt SMO 的支持函数
 class optStruct:
     def __init__(self,dataMatIn, classLabels, C, toler, kTup):  # Initialize the structure with the parameters 
         self.X = dataMatIn
