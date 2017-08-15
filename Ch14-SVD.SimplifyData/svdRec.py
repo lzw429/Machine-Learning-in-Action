@@ -1,5 +1,6 @@
+# coding=utf-8
 from numpy import *
-from numpy import linalg as la
+from numpy import linalg as la  # 线性代数
 
 
 def loadExData():
@@ -27,7 +28,7 @@ def loadExData2():
 
 
 # 相似度计算
-def ecludSim(inA, inB):  # 定义：相似度=1/(1+欧氏距离)
+def ecludSim(inA, inB):  # 定义：相似度= 1 / (1 + 欧氏距离)
     return 1.0 / (1.0 + la.norm(inA - inB))
 
 
@@ -43,8 +44,10 @@ def cosSim(inA, inB):  # 余弦相似度，取值范围归一化到0到1之间
 
 
 # 基于物品相似度的推荐引擎
-def standEst(dataMat, user, simMeas, item):  # 行对应用户，列对应物品
-    n = shape(dataMat)[1]  # n个物品
+# 计算在给定相似度计算方法的条件下，用户对物品的估计评分值
+def standEst(dataMat, user, simMeas, item):  # 数据矩阵，用户编号，相似度计算方法，物品编号
+    # dataSet 行对应用户，列对应物品
+    n = shape(dataMat)[1]  # n是物品数目
     simTotal = 0.0
     ratSimTotal = 0.0
     for j in range(n):
@@ -66,6 +69,18 @@ def standEst(dataMat, user, simMeas, item):  # 行对应用户，列对应物品
         return ratSimTotal / simTotal
 
 
+# 推荐引擎
+def recommend(dataMat, user, N=3, simMeas=cosSim, estMethod=standEst):  # 产生最高的N个推荐结果
+    unratedItems = nonzero(dataMat[user, :].A == 0)[1]  # 寻找未评级物品
+    if len(unratedItems) == 0:
+        return 'you rated everything'
+    itemScores = []
+    for item in unratedItems:
+        estimatedScore = estMethod(dataMat, user, simMeas, item)
+        itemScores.append((item, estimatedScore))
+    return sorted(itemScores, key=lambda jj: jj[1], reverse=True)[:N]
+
+
 # 基于SVD的评分估计
 def svdEst(dataMat, user, simMeas, item):
     n = shape(dataMat)[1]
@@ -85,17 +100,6 @@ def svdEst(dataMat, user, simMeas, item):
         return 0
     else:
         return ratSimTotal / simTotal
-
-
-def recommend(dataMat, user, N=3, simMeas=cosSim, estMethod=standEst):
-    unratedItems = nonzero(dataMat[user, :].A == 0)[1]  # 寻找未评级物品
-    if len(unratedItems) == 0:
-        return 'you rated everything'
-    itemScores = []
-    for item in unratedItems:
-        estimatedScore = estMethod(dataMat, user, simMeas, item)
-        itemScores.append((item, estimatedScore))
-    return sorted(itemScores, key=lambda jj: jj[1], reverse=True)[:N]
 
 
 # 图像压缩函数
