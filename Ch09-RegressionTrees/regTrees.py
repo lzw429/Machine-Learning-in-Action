@@ -174,7 +174,7 @@ def treeForeCast(tree, inData, modelEval=regTreeEval):
             return modelEval(tree['right'], inData)
 
 
-def createForeCast(tree, testData, modelEval=regTreeEval):
+def createForeCast(tree, testData, modelEval=regTreeEval):	# 以向量形式返回一组预测值
     m = len(testData)
     yHat = mat(zeros((m, 1)))
     for i in range(m):
