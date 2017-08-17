@@ -67,16 +67,17 @@ def updateHeader(nodeToTest, targetNode):  # 该版本不使用递归
     nodeToTest.nodeLink = targetNode
 
 
+# 发现以给定元素项结尾的所有路径的函数
 def ascendTree(leafNode, prefixPath):  # 从叶结点上升到根结点
     if leafNode.parent != None:
         prefixPath.append(leafNode.name)
         ascendTree(leafNode.parent, prefixPath)
 
 
-def findPrefixPath(basePat, treeNode):  # treeNode comes from header table
+def findPrefixPath(basePat, treeNode):  # treeNode 来自头指针表
     condPats = {}
     while treeNode != None:
-        prefixPath = []
+        prefixPath = []  # 列表
         ascendTree(treeNode, prefixPath)
         if len(prefixPath) > 1:
             condPats[frozenset(prefixPath[1:])] = treeNode.count
@@ -85,7 +86,7 @@ def findPrefixPath(basePat, treeNode):  # treeNode comes from header table
 
 
 def mineTree(inTree, headerTable, minSup, preFix, freqItemList):
-    bigL = [v[0] for v in sorted(headerTable.items(), key=lambda p: p[1])]  # (sort header table)
+    bigL = [v[0] for v in sorted(headerTable.items(), key=lambda p: p[1])]  # 为头指针表排序
     for basePat in bigL:  # 从头指针表的底部开始
         newFreqSet = preFix.copy()
         newFreqSet.add(basePat)
